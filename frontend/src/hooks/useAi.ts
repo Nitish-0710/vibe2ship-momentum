@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { generateAiPlan } from '@/services/ai.service'
-import type { BrainPlanResponse } from '@/types/ai.types'
+import {
+  generateAiPlan,
+  generateAiReplan,
+  submitDailyReflection,
+  fetchUserAnalytics,
+} from '@/services/ai.service'
+import type { BrainPlanResponse, UserAnalyticsResponse } from '@/types/ai.types'
 
 /**
  * Hook to retrieve the current cached AI plan.
@@ -9,7 +14,7 @@ import type { BrainPlanResponse } from '@/types/ai.types'
 export function useAiPlan() {
   return useQuery<BrainPlanResponse | null>({
     queryKey: ['aiPlan'],
-    queryFn: () => null, // Serves as local cache state container
+    queryFn: () => null,
     staleTime: Infinity,
     initialData: null,
   })
@@ -17,17 +22,59 @@ export function useAiPlan() {
 
 /**
  * Mutation hook to execute the AI planning pipeline.
- * Automatically updates ['aiPlan'] cache and invalidates task lists to reflect any priority updates.
  */
 export function useGeneratePlan() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (userMessage?: string) => generateAiPlan(userMessage),
     onSuccess: (data) => {
-      // Update local AI plan cache
       queryClient.setQueryData(['aiPlan'], data)
-      // Invalidate task queries so list reads are refreshed with correct priorityScores
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['userAnalytics'] })
+    },
+  })
+}
+
+/**
+ * Mutation hook to run adaptive replanning.
+ */
+export function useGenerateReplan() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (userMessage?: string) => generateAiReplan(userMessage),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['aiPlan'], res.data)
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['userAnalytics'] })
+    },
+  })
+}
+
+/**
+ * Mutation hook to submit user daily reflections.
+ */
+export function useSubmitReflection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: {
+      productivityRating: number
+      completedTasks: string[]
+      blockers: string[]
+      notes: string
+    }) => submitDailyReflection(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userAnalytics'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
+  })
+}
+
+/**
+ * Query hook to fetch calculated productivity insights analytics.
+ */
+export function useUserAnalytics() {
+  return useQuery<UserAnalyticsResponse>({
+    queryKey: ['userAnalytics'],
+    queryFn: fetchUserAnalytics,
   })
 }

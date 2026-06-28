@@ -15,6 +15,27 @@ router.use(authenticate)
 router.post('/plan', aiController.plan)
 
 /**
+ * POST /ai/replan
+ *
+ * Checks triggers and generates adaptive replanning adjustments.
+ */
+router.post('/replan', aiController.replan)
+
+/**
+ * POST /ai/reflection
+ *
+ * Stores user daily reflection and runs Reflection Engine observations.
+ */
+router.post('/reflection', aiController.reflect)
+
+/**
+ * GET /ai/insights
+ *
+ * Retrieves calculated user productivity metrics and observation insights.
+ */
+router.get('/insights', aiController.insights)
+
+/**
  * POST /ai/reason
  *
  * Runs the reasoning and decision engines.

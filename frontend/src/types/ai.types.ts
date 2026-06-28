@@ -123,3 +123,20 @@ export interface BrainPlanResponse {
   }
   pipelineDurationMs: number
 }
+
+export interface WeeklyTrendItem {
+  day: string
+  count: number
+}
+
+export interface UserAnalyticsResponse {
+  completionRate: number
+  estimatedHours: number
+  actualHoursCompleted: number
+  overdueTasksCount: number
+  focusConsistencyScore: number
+  preferredWorkWindow: string
+  recurringBlockers: string[]
+  weeklyCompletionTrend: WeeklyTrendItem[]
+  reflectionSummary: string
+}
