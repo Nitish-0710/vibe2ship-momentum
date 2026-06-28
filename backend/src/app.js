@@ -10,6 +10,7 @@ const { initializeGemini } = require('./config/gemini');
 // Routes
 const authRoutes = require('./routes/auth.routes');
 const taskRoutes = require('./routes/task.routes');
+const aiRoutes = require('./routes/ai.routes');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.get('/health', (req, res) => {
 // Mount routes
 app.use('/auth', authRoutes);
 app.use('/tasks', taskRoutes);
+app.use('/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {
