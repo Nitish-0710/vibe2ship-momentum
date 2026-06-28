@@ -6,11 +6,12 @@ const { executePipeline } = require('../brain/orchestrator/brain-orchestrator')
  */
 
 /**
- * POST /ai/reason
+ * POST /ai/plan
  *
- * Runs the reasoning and decision engine pipeline on the user's tasks.
+ * Runs the complete planning pipeline (Context -> Reasoning -> Decision -> Planning)
+ * and returns the generated execution plan.
  */
-async function reason(req, res) {
+async function plan(req, res) {
   try {
     const userId = req.user.uid
     const options = {
@@ -19,10 +20,13 @@ async function reason(req, res) {
     }
 
     const result = await executePipeline(userId, options)
-    return res.status(200).json(result)
+    return res.status(200).json({
+      success: true,
+      data: result,
+    })
   } catch (err) {
-    console.error('ai.controller.reason error:', err.message)
-    
+    console.error('ai.controller.plan error:', err.message)
+
     if (err.message === 'CONTEXT_BUILD_FAILED') {
       return res.status(500).json({
         success: false,
@@ -39,9 +43,18 @@ async function reason(req, res) {
 
     return res.status(500).json({
       success: false,
-      error: { code: 'SERVER_ERROR', message: 'An unexpected error occurred during reasoning.' },
+      error: { code: 'SERVER_ERROR', message: 'An unexpected error occurred during planning.' },
     })
   }
 }
 
-module.exports = { reason }
+/**
+ * POST /ai/reason
+ *
+ * Diagnostic/development helper route matching Phase 3B pipeline.
+ */
+async function reason(req, res) {
+  return plan(req, res)
+}
+
+module.exports = { plan, reason }

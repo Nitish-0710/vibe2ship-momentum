@@ -1,7 +1,7 @@
 /**
  * Brain Orchestrator.
  *
- * Coordinates the Momentum Brain reasoning pipeline.
+ * Coordinates the Momentum Brain reasoning & planning pipeline.
  *
  * References:
  *   TDD §19 "Momentum Brain Architecture"
@@ -10,24 +10,25 @@
  *   AISPEC §15 "Engine Communication"
  *   AISPEC §16 "Execution Rules"
  *
- * Current Phase 3B pipeline implementation:
- *   Context Builder -> Reasoning Engine -> Decision Engine -> Return Decision Result
+ * Current Phase 3C pipeline implementation:
+ *   Context Builder -> Reasoning Engine -> Decision Engine -> Planning Engine -> Return PlanningOutput
  */
 
 const { buildContext } = require('../context/context-builder')
 const { validateBrainContext, validateDecisionOutput } = require('../modules/brain-validator')
 const { executeReasoning } = require('../modules/reasoning-engine')
 const { executeDecisions } = require('../modules/decision-engine')
+const { executePlanning } = require('../modules/planning-engine')
 
 /**
  * Main entry point for the Momentum Brain pipeline.
- * Runs Context Builder, Reasoning Engine, and Decision Engine.
+ * Runs Context Builder, Reasoning Engine, Decision Engine, and Planning Engine.
  *
  * @param {string} userId        - Firebase UID
  * @param {Object} [options]
  * @param {string} [options.requestType]  - 'plan' | 'replan'
  * @param {string} [options.userMessage]  - Optional natural-language input
- * @returns {Promise<Object>} Decision result with reasoning details
+ * @returns {Promise<import('../schemas/planning.schema').PlanningOutput>} The generated PlanningOutput
  */
 async function executePipeline(userId, options = {}) {
   const startTime = Date.now()
@@ -66,23 +67,14 @@ async function executePipeline(userId, options = {}) {
     throw new Error('DECISION_VALIDATION_FAILED')
   }
 
+  // ── Step 4 & 5: Create strategy & schedule (Planning Engine) ───
+  console.log('[Brain Orchestrator] Invoking Planning Engine...')
+  const planningOutput = await executePlanning(context, reasoningOutput, decisions)
+
   const elapsed = Date.now() - startTime
   console.log(`[Brain Orchestrator] Pipeline completed successfully in ${elapsed}ms.`)
 
-  return {
-    success: true,
-    data: {
-      decisions,
-      reasoning: {
-        extractedTasks: reasoningOutput.extractedTasks,
-        detectedRisks: reasoningOutput.detectedRisks,
-        estimatedWorkload: reasoningOutput.estimatedWorkload,
-        summary: reasoningOutput.summary,
-        confidence: reasoningOutput.confidence,
-      },
-      pipelineDurationMs: elapsed,
-    },
-  }
+  return planningOutput
 }
 
 module.exports = { executePipeline }

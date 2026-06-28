@@ -8,6 +8,13 @@ const router = express.Router()
 router.use(authenticate)
 
 /**
+ * POST /ai/plan
+ *
+ * Runs the complete planning pipeline and generates schedule.
+ */
+router.post('/plan', aiController.plan)
+
+/**
  * POST /ai/reason
  *
  * Runs the reasoning and decision engines.
