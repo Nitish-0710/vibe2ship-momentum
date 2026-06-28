@@ -132,10 +132,60 @@ function validateDecisionOutput(output) {
   return { isValid: errors.length === 0, errors }
 }
 
+/**
+ * Validates a ReflectionOutput from the Reflection Engine.
+ *
+ * @param {Object} output
+ * @returns {{ isValid: boolean, errors: string[] }}
+ */
+function validateReflectionOutput(output) {
+  const errors = []
+
+  if (!output) return { isValid: false, errors: ['Output is null or undefined.'] }
+
+  if (typeof output.reflectionSummary !== 'string' || output.reflectionSummary.length === 0) {
+    errors.push('reflectionSummary must be a non-empty string.')
+  }
+  if (typeof output.completedTaskCount !== 'number') errors.push('completedTaskCount must be a number.')
+  if (typeof output.skippedTaskCount !== 'number') errors.push('skippedTaskCount must be a number.')
+  if (!Array.isArray(output.insights)) errors.push('insights must be an array.')
+  if (!Array.isArray(output.recommendations)) errors.push('recommendations must be an array.')
+  if (!Array.isArray(output.planningAdjustments)) errors.push('planningAdjustments must be an array.')
+
+  if (typeof output.confidence !== 'number') errors.push('confidence must be a number.')
+  else if (output.confidence < 0 || output.confidence > 100) errors.push('confidence must be 0–100.')
+
+  return { isValid: errors.length === 0, errors }
+}
+
+/**
+ * Validates a CoachingOutput from the Coaching Engine.
+ *
+ * @param {Object} output
+ * @returns {{ isValid: boolean, errors: string[] }}
+ */
+function validateCoachingOutput(output) {
+  const errors = []
+
+  if (!output) return { isValid: false, errors: ['Output is null or undefined.'] }
+
+  if (!Array.isArray(output.coachingMessages)) errors.push('coachingMessages must be an array.')
+  if (typeof output.dailySummary !== 'string' || output.dailySummary.length === 0) {
+    errors.push('dailySummary must be a non-empty string.')
+  }
+
+  if (typeof output.confidence !== 'number') errors.push('confidence must be a number.')
+  else if (output.confidence < 0 || output.confidence > 100) errors.push('confidence must be 0–100.')
+
+  return { isValid: errors.length === 0, errors }
+}
+
 module.exports = {
   validateBrainContext,
   validatePlanningOutput,
   validateReasoningOutput,
   validateDecisionOutput,
+  validateReflectionOutput,
+  validateCoachingOutput,
   safeJsonParse,
 }
