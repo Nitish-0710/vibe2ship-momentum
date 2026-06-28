@@ -136,6 +136,13 @@ export default function TaskCard({ task, onClick, onStatusChange, onDelete }: Ta
               ⌛ {task.estimatedHours}h
             </span>
           )}
+
+          {/* Priority Score */}
+          {task.priorityScore != null && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(108,99,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,99,255,0.25)' }}>
+              ⚡ Score: {task.priorityScore}
+            </span>
+          )}
         </div>
       </div>
     </div>

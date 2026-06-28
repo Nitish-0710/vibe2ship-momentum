@@ -1,4 +1,4 @@
-const { executePipeline } = require('../brain/orchestrator/brain-orchestrator')
+const { executePipeline, PipelineValidationError } = require('../brain/orchestrator/brain-orchestrator')
 
 /**
  * AI Controller.
@@ -8,8 +8,8 @@ const { executePipeline } = require('../brain/orchestrator/brain-orchestrator')
 /**
  * POST /ai/plan
  *
- * Runs the complete planning pipeline (Context -> Reasoning -> Decision -> Planning)
- * and returns the generated execution plan.
+ * Runs the complete planning pipeline (Context -> Reasoning -> Decision -> Planning -> Reflection -> Coaching)
+ * and returns the enriched plan response.
  */
 async function plan(req, res) {
   try {
@@ -27,17 +27,22 @@ async function plan(req, res) {
   } catch (err) {
     console.error('ai.controller.plan error:', err.message)
 
+    if (err instanceof PipelineValidationError) {
+      return res.status(422).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_FAILED',
+          message: `Validation failed at stage: ${err.stage}`,
+          stage: err.stage,
+          details: err.errors,
+        },
+      })
+    }
+
     if (err.message === 'CONTEXT_BUILD_FAILED') {
       return res.status(500).json({
         success: false,
         error: { code: 'CONTEXT_BUILD_FAILED', message: 'Failed to construct user context.' },
-      })
-    }
-
-    if (err.message === 'DECISION_VALIDATION_FAILED') {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'DECISION_VALIDATION_FAILED', message: 'Brain output failed structural validation.' },
       })
     }
 
@@ -51,7 +56,7 @@ async function plan(req, res) {
 /**
  * POST /ai/reason
  *
- * Diagnostic/development helper route matching Phase 3B pipeline.
+ * Diagnostic/development helper route returning the full planning response.
  */
 async function reason(req, res) {
   return plan(req, res)
