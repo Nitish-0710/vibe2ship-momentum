@@ -24,11 +24,20 @@ class PipelineValidationError extends Error {
  *   AISPEC §15 "Engine Communication"
  *   AISPEC §16 "Execution Rules"
  *
- * Current Phase 3E pipeline implementation:
- *   Context Builder -> Reasoning Engine -> Decision Engine -> Planning Engine -> Reflection Engine -> Coaching Engine
- *
- * Validation: Enforces strict structural checks at every boundary. Stops execution and throws
- * a PipelineValidationError if validation fails.
+ * Current Phase 3F pipeline implementation:
+ *   Context Builder
+ *   ↓
+ *   Reasoning Engine
+ *   ↓
+ *   Decision Engine
+ *   ↓
+ *   Planning Engine
+ *   ↓
+ *   Reflection Engine
+ *   ↓
+ *   Coaching Engine
+ *   ↓
+ *   Memory Engine (Firestore updates)
  */
 
 const { buildContext } = require('../context/context-builder')
@@ -45,17 +54,18 @@ const { executeDecisions } = require('../modules/decision-engine')
 const { executePlanning } = require('../modules/planning-engine')
 const { executeReflection } = require('../modules/reflection-engine')
 const { executeCoaching } = require('../modules/coaching-engine')
+const { updateMemory } = require('../modules/memory-engine')
 
 /**
  * Main entry point for the Momentum Brain pipeline.
  * Runs Context Builder, Reasoning Engine, Decision Engine, Planning Engine,
- * Reflection Engine, and Coaching Engine with strict validation gates.
+ * Reflection Engine, Coaching Engine, and Memory Engine.
  *
  * @param {string} userId        - Firebase UID
  * @param {Object} [options]
  * @param {string} [options.requestType]  - 'plan' | 'replan'
  * @param {string} [options.userMessage]  - Optional natural-language input
- * @returns {Promise<Object>} Enriched planning response containing schedule, priorities, reflection, and coaching.
+ * @returns {Promise<Object>} Enriched planning response containing schedule, priorities, reflection, coaching, and memory status.
  */
 async function executePipeline(userId, options = {}) {
   const startTime = Date.now()
@@ -123,6 +133,19 @@ async function executePipeline(userId, options = {}) {
     throw new PipelineValidationError('coaching', coachingValidation.errors)
   }
 
+  // ── Step 8: Update memory observations (Memory Engine) ──────────
+  console.log('[Brain Orchestrator] Invoking Memory Engine...')
+  let memoryResult = { success: true }
+  try {
+    memoryResult = await updateMemory(context, planningOutput, reflectionOutput, coachingOutput)
+    if (!memoryResult.success) {
+      console.warn('[Brain Orchestrator] Memory Engine reported warnings during persistence:', memoryResult.errors)
+    }
+  } catch (err) {
+    console.error('[Brain Orchestrator] Memory Engine write failed with exception:', err.message)
+    memoryResult = { success: false, errors: [err.message] }
+  }
+
   const elapsed = Date.now() - startTime
   console.log(`[Brain Orchestrator] Pipeline completed successfully in ${elapsed}ms.`)
 
@@ -160,6 +183,10 @@ async function executePipeline(userId, options = {}) {
       coachingMessages: coachingOutput.coachingMessages,
       dailySummary: coachingOutput.dailySummary,
       confidence: coachingOutput.confidence,
+    },
+    memory: {
+      success: memoryResult.success,
+      errors: memoryResult.errors || null,
     },
     pipelineDurationMs: elapsed,
   }

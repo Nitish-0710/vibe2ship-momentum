@@ -90,6 +90,28 @@ async function buildContext(userId) {
     missingFields.push('tasks')
   }
 
+  // ── Memory Insights & Historical Schedules ──────────────────────
+  try {
+    const insightsSnap = await db.collection('insights').doc(userId).get()
+    context.memoryInsights = insightsSnap.exists ? insightsSnap.data() : null
+  } catch (err) {
+    console.error('Context Builder — failed to read insights memory:', err.message)
+    missingFields.push('memoryInsights')
+  }
+
+  try {
+    const schedulesSnap = await db
+      .collection('schedules')
+      .where('userId', '==', userId)
+      .orderBy('date', 'desc')
+      .limit(5)
+      .get()
+    context.previousSchedules = schedulesSnap.docs.map((doc) => doc.data())
+  } catch (err) {
+    console.error('Context Builder — failed to read schedules history:', err.message)
+    missingFields.push('previousSchedules')
+  }
+
   // ── Timestamps ──────────────────────────────────────────────────
   context.currentTimestamp = new Date().toISOString()
 
