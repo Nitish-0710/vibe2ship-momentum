@@ -30,3 +30,14 @@ export async function fetchUserProfile(): Promise<UserProfile> {
   )
   return response.data.data
 }
+
+/**
+ * Updates the user's Firestore profile settings.
+ */
+export async function updateUserProfile(userData: Partial<UserProfile>): Promise<UserProfile> {
+  const response = await api.put<{ success: boolean; data: UserProfile }>(
+    '/auth/profile',
+    userData,
+  )
+  return response.data.data
+}

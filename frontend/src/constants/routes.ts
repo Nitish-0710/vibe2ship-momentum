@@ -7,6 +7,10 @@ export const ROUTES = {
   SIGNUP: '/signup',
   DASHBOARD: '/dashboard',
   TASKS: '/dashboard/tasks',
+  PLANNER: '/planner',
+  ANALYTICS: '/analytics',
+  REFLECTION: '/reflection',
+  SETTINGS: '/settings',
 } as const
 
 export type RouteKey = keyof typeof ROUTES

@@ -15,6 +15,13 @@ router.use(authenticate)
 router.post('/plan', aiController.plan)
 
 /**
+ * GET /ai/plan/today
+ *
+ * Retrieves today's persisted schedule plan.
+ */
+router.get('/plan/today', aiController.getTodayPlan)
+
+/**
  * POST /ai/replan
  *
  * Checks triggers and generates adaptive replanning adjustments.

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   generateAiPlan,
+  fetchTodayPlan,
   generateAiReplan,
   submitDailyReflection,
   fetchUserAnalytics,
@@ -8,15 +9,14 @@ import {
 import type { BrainPlanResponse, UserAnalyticsResponse } from '@/types/ai.types'
 
 /**
- * Hook to retrieve the current cached AI plan.
- * Returns null if no plan has been generated in the current session.
+ * Hook to retrieve today's saved AI plan.
+ * Fetches from backend if not already cached.
  */
 export function useAiPlan() {
   return useQuery<BrainPlanResponse | null>({
     queryKey: ['aiPlan'],
-    queryFn: () => null,
-    staleTime: Infinity,
-    initialData: null,
+    queryFn: () => fetchTodayPlan(),
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   })
 }
 

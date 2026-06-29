@@ -53,4 +53,28 @@ async function getProfile(req, res) {
   }
 }
 
-module.exports = { login, getProfile }
+/**
+ * PUT /auth/profile
+ * Updates the authenticated user's Firestore profile settings.
+ */
+async function updateProfile(req, res) {
+  try {
+    const uid = req.user.uid
+    const user = await authService.updateUserProfile(uid, req.body)
+    return res.status(200).json({ success: true, data: user })
+  } catch (error) {
+    if (error.message === 'USER_NOT_FOUND') {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User profile not found.' },
+      })
+    }
+    console.error('auth.controller.updateProfile error:', error.message)
+    return res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Failed to update profile settings.' },
+    })
+  }
+}
+
+module.exports = { login, getProfile, updateProfile }

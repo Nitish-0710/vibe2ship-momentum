@@ -137,7 +137,7 @@ async function executePipeline(userId, options = {}) {
   console.log('[Brain Orchestrator] Invoking Memory Engine...')
   let memoryResult = { success: true }
   try {
-    memoryResult = await updateMemory(context, planningOutput, reflectionOutput, coachingOutput)
+    memoryResult = await updateMemory(context, planningOutput, reflectionOutput, coachingOutput, decisions, reasoningOutput)
     if (!memoryResult.success) {
       console.warn('[Brain Orchestrator] Memory Engine reported warnings during persistence:', memoryResult.errors)
     }

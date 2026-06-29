@@ -1,19 +1,19 @@
 /**
  * Reflection Engine.
  *
- * Analyzes completed work and schedule outcomes using Gemini.
+ * Analyzes completed work and schedule outcomes using the LLM.
  *
  * References: TDD §21 "Reasoning Engines" -> Module 6, AISPEC §13 "Reflection Engine"
  *
  * Responsibilities:
  *   - Receives BrainContext, ReasoningOutput, DecisionOutput, and PlanningOutput.
  *   - Injects the bundled context into the Reflection Prompt template.
- *   - Calls Gemini Service to perform reflection.
+ *   - Calls LLM Service to perform reflection.
  *   - Parses and validates output against ReflectionOutput schema.
  *   - Implements retry logic and graceful fallback.
  */
 
-const { generateContent } = require('./gemini-service')
+const { generateContent } = require('./llm-service')
 const { SYSTEM_PROMPT } = require('../prompts/system.prompt')
 const { REFLECTION_PROMPT } = require('../prompts/reflection.prompt')
 const { validateReflectionOutput, safeJsonParse } = require('./brain-validator')
@@ -61,12 +61,12 @@ async function executeReflection(context, reasoningOutput, decisionOutput, plann
   while (attempts < maxAttempts) {
     attempts++
     const startTime = Date.now()
-    console.log(`[Reflection Engine] Attempt ${attempts}/${maxAttempts}: Initiating Gemini request...`)
+    console.log(`[Reflection Engine] Attempt ${attempts}/${maxAttempts}: Initiating LLM request...`)
 
     try {
       const rawResponse = await generateContent(SYSTEM_PROMPT, userPrompt)
       const latency = Date.now() - startTime
-      console.log(`[Reflection Engine] Gemini response received in ${latency}ms.`)
+      console.log(`[Reflection Engine] LLM response received in ${latency}ms.`)
 
       // Parse JSON
       const parsed = safeJsonParse(rawResponse)
@@ -92,7 +92,7 @@ async function executeReflection(context, reasoningOutput, decisionOutput, plann
   }
 
   // Fallback
-  console.warn('[Reflection Engine] Persistent failure or Gemini unavailable. Returning fallback reflection.')
+  console.warn('[Reflection Engine] Persistent failure or LLM unavailable. Returning fallback reflection.')
   return createFallbackReflectionOutput('Reflection engine failed to generate.')
 }
 

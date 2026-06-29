@@ -2,14 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Users ────────────────────────────────────────────────────────
-    // Users can only read and write their own document.
+    // Users can only access their own profile document
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null &&
+                          request.auth.uid == userId;
     }
 
-    // ─── Default ──────────────────────────────────────────────────────
-    // Deny all other access by default.
+    // Everything else is backend-only (Admin SDK bypasses these rules)
     match /{document=**} {
       allow read, write: if false;
     }

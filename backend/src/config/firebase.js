@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
 let db = null;
@@ -6,11 +6,13 @@ let db = null;
 function initializeFirebase() {
   try {
     if (process.env.FIREBASE_PROJECT_ID) {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
+      initializeApp({
+        credential: applicationDefault(),
         projectId: process.env.FIREBASE_PROJECT_ID,
       });
+
       db = getFirestore();
+
       console.log('Firebase Admin initialized successfully.');
       console.log('Firestore connection initialized successfully.');
     } else {
@@ -21,4 +23,11 @@ function initializeFirebase() {
   }
 }
 
-module.exports = { initializeFirebase, getDb: () => db };
+function getDb() {
+  return db;
+}
+
+module.exports = {
+  initializeFirebase,
+  getDb,
+};

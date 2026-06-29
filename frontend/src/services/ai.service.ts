@@ -18,6 +18,14 @@ export async function generateAiPlan(userMessage?: string): Promise<BrainPlanRes
 }
 
 /**
+ * Fetches today's saved schedule plan from Firestore if already generated.
+ */
+export async function fetchTodayPlan(): Promise<BrainPlanResponse | null> {
+  const response = await api.get<{ success: boolean; data: BrainPlanResponse | null }>('/ai/plan/today')
+  return response.data.data
+}
+
+/**
  * Requests the backend to execute adaptive replanning based on workload triggers.
  */
 export async function generateAiReplan(userMessage?: string): Promise<{

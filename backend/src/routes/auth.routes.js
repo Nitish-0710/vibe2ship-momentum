@@ -18,4 +18,11 @@ router.post('/login', authenticate, authController.login)
  */
 router.get('/profile', authenticate, authController.getProfile)
 
+/**
+ * PUT /auth/profile
+ * Updates the authenticated user's profile settings in Firestore.
+ * Protected: requires valid Firebase ID Token.
+ */
+router.put('/profile', authenticate, authController.updateProfile)
+
 module.exports = router

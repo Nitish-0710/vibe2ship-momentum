@@ -3,6 +3,7 @@ const { detectReplanningTriggers } = require('../brain/modules/adaptive-planner'
 const { buildContext } = require('../brain/context/context-builder')
 const { recordDailyReflection } = require('../services/reflection.service')
 const { getUserAnalytics } = require('../services/analytics.service')
+const { getDb } = require('../config/firebase')
 
 /**
  * AI Controller.
@@ -156,4 +157,87 @@ async function reason(req, res) {
   return plan(req, res)
 }
 
-module.exports = { plan, replan, reflect, insights, reason }
+/**
+ * GET /ai/plan/today
+ *
+ * Retrieves today's persisted schedule plan if one exists.
+ */
+async function getTodayPlan(req, res) {
+  try {
+    const userId = req.user.uid
+    const todayDateStr = new Date().toISOString().substring(0, 10)
+    const db = getDb()
+
+    if (!db) {
+      return res.status(500).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: 'Firestore connection is unavailable.' },
+      })
+    }
+
+    const docRef = db.collection('schedules').doc(`${userId}_${todayDateStr}`)
+    const docSnap = await docRef.get()
+
+    if (!docSnap.exists) {
+      return res.status(200).json({
+        success: true,
+        data: null,
+      })
+    }
+
+    const data = docSnap.data()
+    const fullPlan = data.fullPlan || null
+
+    if (fullPlan) {
+      if (!fullPlan.decisions) {
+        fullPlan.decisions = {
+          priorityOrdering: [],
+          urgencyAssessment: {},
+          focusRecommendations: [],
+          deferredTasks: [],
+          blockedTasks: [],
+          confidence: 100,
+          summary: '',
+        }
+      }
+      if (!fullPlan.reasoning) {
+        fullPlan.reasoning = {
+          extractedTasks: [],
+          detectedRisks: [],
+          estimatedWorkload: 0,
+          summary: '',
+          confidence: 100,
+        }
+      }
+      if (!fullPlan.reflection) {
+        fullPlan.reflection = {
+          reflectionSummary: '',
+          insights: [],
+          recommendations: [],
+          planningAdjustments: [],
+          confidence: 100,
+        }
+      }
+      if (!fullPlan.coaching) {
+        fullPlan.coaching = {
+          coachingMessages: [],
+          dailySummary: '',
+          confidence: 100,
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: fullPlan,
+    })
+  } catch (err) {
+    console.error('ai.controller.getTodayPlan error:', err.message)
+    return res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: "Failed to retrieve today's schedule." },
+    })
+  }
+}
+
+module.exports = { plan, replan, reflect, insights, reason, getTodayPlan }

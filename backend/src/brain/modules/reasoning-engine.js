@@ -1,20 +1,20 @@
 /**
  * Reasoning Engine.
  *
- * Analyzes the BrainContext using Gemini to generate structural understanding.
+ * Analyzes the BrainContext using the LLM to generate structural understanding.
  *
  * References: TDD §21 "Reasoning Engines" -> Module 1, AISPEC §8 "Reasoning Engine"
  *
  * Responsibilities:
  *   - Receives validated BrainContext.
  *   - Injects user context into the Reasoning Prompt template.
- *   - Calls Gemini Service to perform inference.
+ *   - Calls LLM Service to perform inference.
  *   - Parses and validates the structured output.
  *   - Implements a single retry attempt on failure.
  *   - Falls back gracefully to structured default values on persistent error.
  */
 
-const { generateContent } = require('./gemini-service')
+const { generateContent } = require('./llm-service')
 const { SYSTEM_PROMPT } = require('../prompts/system.prompt')
 const { REASONING_PROMPT } = require('../prompts/reasoning.prompt')
 const { validateReasoningOutput, safeJsonParse } = require('./brain-validator')
@@ -35,12 +35,12 @@ async function executeReasoning(context) {
   while (attempts < maxAttempts) {
     attempts++
     const startTime = Date.now()
-    console.log(`[Reasoning Engine] Attempt ${attempts}/${maxAttempts}: Initiating Gemini request...`)
+    console.log(`[Reasoning Engine] Attempt ${attempts}/${maxAttempts}: Initiating LLM request...`)
     
     try {
       const rawResponse = await generateContent(SYSTEM_PROMPT, userPrompt)
       const latency = Date.now() - startTime
-      console.log(`[Reasoning Engine] Gemini response received in ${latency}ms.`)
+      console.log(`[Reasoning Engine] LLM response received in ${latency}ms.`)
 
       // Parse JSON
       const parsed = safeJsonParse(rawResponse)
@@ -67,7 +67,7 @@ async function executeReasoning(context) {
   }
 
   // Graceful fallback
-  console.warn('[Reasoning Engine] Persistent failure or Gemini unavailable. Returning fallback reasoning output.')
+  console.warn('[Reasoning Engine] Persistent failure or LLM unavailable. Returning fallback reasoning output.')
   return createFallbackReasoningOutput('Inference failed or was unavailable.')
 }
 

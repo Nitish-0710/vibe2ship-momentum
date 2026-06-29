@@ -68,4 +68,41 @@ async function getUserProfile(uid) {
   return userSnap.data()
 }
 
-module.exports = { createOrGetUser, getUserProfile }
+/**
+ * Updates an existing user's profile settings in Firestore.
+ *
+ * @param {string} uid - Firebase UID
+ * @param {Object} updateData - Key-values to update
+ * @returns {Promise<Object>} The updated user document data
+ */
+async function updateUserProfile(uid, updateData) {
+  const db = getDb()
+  if (!db) throw new Error('Firestore is not initialized.')
+
+  const userRef = db.collection('users').doc(uid)
+  const userSnap = await userRef.get()
+
+  if (!userSnap.exists) {
+    throw new Error('USER_NOT_FOUND')
+  }
+
+  const now = new Date().toISOString()
+  const data = userSnap.data()
+
+  const updated = {
+    ...data,
+    name: updateData.name !== undefined ? updateData.name : data.name,
+    occupation: updateData.occupation !== undefined ? updateData.occupation : data.occupation,
+    timezone: updateData.timezone !== undefined ? updateData.timezone : data.timezone,
+    wakeTime: updateData.wakeTime !== undefined ? updateData.wakeTime : data.wakeTime,
+    sleepTime: updateData.sleepTime !== undefined ? updateData.sleepTime : data.sleepTime,
+    preferences: updateData.preferences !== undefined ? updateData.preferences : data.preferences,
+    updatedAt: now,
+  }
+
+  await userRef.set(updated)
+  console.log(`User profile updated in Firestore: ${uid}`)
+  return updated
+}
+
+module.exports = { createOrGetUser, getUserProfile, updateUserProfile }

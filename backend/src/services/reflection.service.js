@@ -97,7 +97,7 @@ async function recordDailyReflection(userId, reflectionData) {
   // 5. Update Memory insights profile with the new observations
   console.log('[Reflection Service] Triggering Memory insights update...')
   const dummyCoaching = { coachingMessages: [], dailySummary: '', confidence: 100 }
-  await updateMemory(context, dummyPlanning, reflectionOutput, dummyCoaching)
+  await updateMemory(context, dummyPlanning, reflectionOutput, dummyCoaching, dummyDecisions, dummyReasoning)
 
   return {
     reflectionSummary: reflectionOutput.reflectionSummary,

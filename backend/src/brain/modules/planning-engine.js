@@ -9,13 +9,13 @@
  *   - Receives BrainContext, ReasoningOutput, and DecisionOutput.
  *   - Bundles them into a structured planning context object.
  *   - Injects the bundled context into the Planning Prompt template.
- *   - Calls Gemini Service to perform planning inference.
+ *   - Calls LLM Service to perform planning inference.
  *   - Parses and validates the structured output against PlanningOutput schema.
  *   - Implements a single retry attempt on failure.
  *   - Falls back gracefully to fallback structured planning output on persistent error.
  */
 
-const { generateContent } = require('./gemini-service')
+const { generateContent } = require('./llm-service')
 const { SYSTEM_PROMPT } = require('../prompts/system.prompt')
 const { PLANNING_PROMPT } = require('../prompts/planning.prompt')
 const { validatePlanningOutput, safeJsonParse } = require('./brain-validator')
@@ -57,12 +57,12 @@ async function executePlanning(context, reasoningOutput, decisionOutput) {
   while (attempts < maxAttempts) {
     attempts++
     const startTime = Date.now()
-    console.log(`[Planning Engine] Attempt ${attempts}/${maxAttempts}: Initiating Gemini request...`)
+    console.log(`[Planning Engine] Attempt ${attempts}/${maxAttempts}: Initiating LLM request...`)
 
     try {
       const rawResponse = await generateContent(SYSTEM_PROMPT, userPrompt)
       const latency = Date.now() - startTime
-      console.log(`[Planning Engine] Gemini response received in ${latency}ms.`)
+      console.log(`[Planning Engine] LLM response received in ${latency}ms.`)
 
       // Parse JSON
       const parsed = safeJsonParse(rawResponse)
@@ -90,7 +90,7 @@ async function executePlanning(context, reasoningOutput, decisionOutput) {
   }
 
   // Graceful fallback
-  console.warn('[Planning Engine] Persistent failure or Gemini unavailable. Returning fallback planning output.')
+  console.warn('[Planning Engine] Persistent failure or LLM unavailable. Returning fallback planning output.')
   const fallback = createFallbackPlanningOutput('Planning engine failed to compute a schedule.')
   return fallback
 }

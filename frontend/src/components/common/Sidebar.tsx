@@ -11,9 +11,10 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: '⬡', to: ROUTES.DASHBOARD },
   { label: 'Tasks', icon: '✓', to: ROUTES.TASKS },
-  { label: 'Planner', icon: '⚡', disabled: true },
-  { label: 'Analytics', icon: '◎', disabled: true },
-  { label: 'Settings', icon: '◈', disabled: true },
+  { label: 'Planner', icon: '⚡', to: ROUTES.PLANNER },
+  { label: 'Analytics', icon: '◎', to: ROUTES.ANALYTICS },
+  { label: 'Reflection', icon: '📝', to: ROUTES.REFLECTION },
+  { label: 'Settings', icon: '◈', to: ROUTES.SETTINGS },
 ]
 
 export default function Sidebar() {
@@ -39,25 +40,6 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
-          if (item.disabled) {
-            return (
-              <div
-                key={item.label}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed select-none"
-                style={{ color: 'var(--color-text-muted)', opacity: 0.4 }}
-                title="Coming in a future phase"
-              >
-                <span className="w-4 text-center">{item.icon}</span>
-                {item.label}
-                <span
-                  className="ml-auto text-xs px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}
-                >
-                  soon
-                </span>
-              </div>
-            )
-          }
           return (
             <NavLink
               key={item.label}
@@ -89,7 +71,7 @@ export default function Sidebar() {
         className="px-5 py-4 text-xs shrink-0"
         style={{ color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)' }}
       >
-        Phase 2 — Dashboard
+        Phase 5 — Production
       </div>
     </aside>
   )

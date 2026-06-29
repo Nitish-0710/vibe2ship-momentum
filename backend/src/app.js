@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const { initializeFirebase } = require('./config/firebase');
-const { initializeGemini } = require('./config/gemini');
+const { initializeLLM } = require('./config/llm');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -22,7 +22,7 @@ app.use(morgan('dev'));
 
 // Initialize Services
 initializeFirebase();
-initializeGemini();
+initializeLLM();
 
 // Health check — unauthenticated
 app.get('/health', (req, res) => {

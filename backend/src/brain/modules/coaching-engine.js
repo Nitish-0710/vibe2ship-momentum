@@ -8,12 +8,12 @@
  * Responsibilities:
  *   - Receives BrainContext, PlanningOutput, and ReflectionOutput.
  *   - Injects the bundled context into the Coaching Prompt template.
- *   - Calls Gemini Service to perform coaching inference.
+ *   - Calls LLM Service to perform coaching inference.
  *   - Parses and validates output against CoachingOutput schema.
  *   - Implements retry logic and graceful fallback.
  */
 
-const { generateContent } = require('./gemini-service')
+const { generateContent } = require('./llm-service')
 const { SYSTEM_PROMPT } = require('../prompts/system.prompt')
 const { COACHING_PROMPT } = require('../prompts/coaching.prompt')
 const { validateCoachingOutput, safeJsonParse } = require('./brain-validator')
@@ -51,12 +51,12 @@ async function executeCoaching(context, planningOutput, reflectionOutput) {
   while (attempts < maxAttempts) {
     attempts++
     const startTime = Date.now()
-    console.log(`[Coaching Engine] Attempt ${attempts}/${maxAttempts}: Initiating Gemini request...`)
+    console.log(`[Coaching Engine] Attempt ${attempts}/${maxAttempts}: Initiating LLM request...`)
 
     try {
       const rawResponse = await generateContent(SYSTEM_PROMPT, userPrompt)
       const latency = Date.now() - startTime
-      console.log(`[Coaching Engine] Gemini response received in ${latency}ms.`)
+      console.log(`[Coaching Engine] LLM response received in ${latency}ms.`)
 
       // Parse JSON
       const parsed = safeJsonParse(rawResponse)
@@ -82,7 +82,7 @@ async function executeCoaching(context, planningOutput, reflectionOutput) {
   }
 
   // Fallback
-  console.warn('[Coaching Engine] Persistent failure or Gemini unavailable. Returning fallback coaching.')
+  console.warn('[Coaching Engine] Persistent failure or LLM unavailable. Returning fallback coaching.')
   return createFallbackCoachingOutput('Coaching advice could not be retrieved.')
 }
 

@@ -16,7 +16,7 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth'
 import { auth, googleProvider } from '@/config/firebase'
-import { fetchUserProfile, syncUserProfile } from '@/services/auth.service'
+import { fetchUserProfile, syncUserProfile, updateUserProfile } from '@/services/auth.service'
 import type { UserProfile } from '@/types/auth.types'
 
 interface AuthContextValue {
@@ -30,6 +30,7 @@ interface AuthContextValue {
   signup: (name: string, email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
   logout: () => Promise<void>
+  updateProfileSettings: (userData: Partial<UserProfile>) => Promise<void>
   clearError: () => void
 }
 
@@ -157,6 +158,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileSyncError(null)
   }, [])
 
+  const updateProfileSettings = useCallback(async (userData: Partial<UserProfile>) => {
+    setError(null)
+    try {
+      const updated = await updateUserProfile(userData)
+      setUserProfile(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile settings.')
+      throw err
+    }
+  }, [])
+
   return (
     <AuthContext.Provider
       value={{
@@ -169,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         loginWithGoogle,
         logout,
+        updateProfileSettings,
         clearError,
       }}
     >

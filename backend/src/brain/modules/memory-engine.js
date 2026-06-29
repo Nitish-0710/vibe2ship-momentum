@@ -36,9 +36,11 @@ function validateMemoryObject(data) {
  * @param {import('../schemas/planning.schema').PlanningOutput} planningOutput
  * @param {Object} reflectionOutput
  * @param {Object} coachingOutput
+ * @param {Object} [decisions]
+ * @param {Object} [reasoning]
  * @returns {Promise<{ success: boolean, errors?: string[] }>}
  */
-async function updateMemory(context, planningOutput, reflectionOutput, coachingOutput) {
+async function updateMemory(context, planningOutput, reflectionOutput, coachingOutput, decisions, reasoning) {
   const userId = context.user?.uid
   if (!userId) {
     return { success: false, errors: ['No authenticated user found in context.'] }
@@ -63,6 +65,32 @@ async function updateMemory(context, planningOutput, reflectionOutput, coachingO
       totalHours,
       aiSummary: coachingOutput.dailySummary || planningOutput.summary || '',
       createdAt: now,
+      fullPlan: {
+        planningResult: planningOutput.planningResult,
+        taskPriorities: planningOutput.taskPriorities,
+        schedule: planningOutput.schedule,
+        recommendations: planningOutput.recommendations,
+        confidence: planningOutput.confidence,
+        summary: planningOutput.summary,
+        decisions: decisions || {
+          priorityOrdering: [],
+          urgencyAssessment: {},
+          focusRecommendations: [],
+          deferredTasks: [],
+          blockedTasks: [],
+          confidence: 100,
+          summary: '',
+        },
+        reasoning: reasoning || {
+          extractedTasks: [],
+          detectedRisks: [],
+          estimatedWorkload: 0,
+          summary: '',
+          confidence: 100,
+        },
+        reflection: reflectionOutput,
+        coaching: coachingOutput,
+      }
     }
 
     const valErrors = validateMemoryObject(scheduleData)
