@@ -110,7 +110,7 @@ graph TD
     end
 
     subgraph Data & Inference Providers
-        Groq["Groq Cloud SDK (Llama 3.3 70B)"]
+        LLM["Gemini SDK / Groq Cloud SDK"]
         Firestore["Cloud Firestore Database"]
     end
 
@@ -122,14 +122,14 @@ graph TD
     Orchestrator --> Context
     Context -->|Read Profile, Tasks & Memory| Firestore
     Orchestrator --> Reasoning
-    Reasoning -->|Chat Completion JSON| Groq
+    Reasoning -->|Chat Completion JSON| LLM
     Orchestrator --> Decision
     Orchestrator --> Planning
-    Planning -->|Chat Completion JSON| Groq
+    Planning -->|Chat Completion JSON| LLM
     Orchestrator --> Reflection
-    Reflection -->|Chat Completion JSON| Groq
+    Reflection -->|Chat Completion JSON| LLM
     Orchestrator --> Coaching
-    Coaching -->|Chat Completion JSON| Groq
+    Coaching -->|Chat Completion JSON| LLM
     Orchestrator --> Memory
     Memory -->|Write Schedules & Insights| Firestore
 ```
@@ -225,7 +225,7 @@ graph TD
     Orchestrator --> MemoryEngine[Memory Engine]
     
     Engines[AI Engines] --> LLMService[LLM Service]
-    LLMService --> GroqSDK[Groq SDK Client]
+    LLMService --> LLMSDKs[Gemini / Groq SDK Clients]
     
     ContextBuilder --> FirebaseConfig[Firebase Admin Config]
     MemoryEngine --> FirebaseConfig
@@ -381,7 +381,7 @@ sequenceDiagram
     participant Frontend as Frontend (Vite)
     participant Backend as Backend API (Express)
     participant Orchestrator as Brain Orchestrator
-    participant Groq as Groq (Llama 3.3)
+    participant LLM as LLM Provider (Gemini/Groq)
     participant Firestore as Firestore DB
 
     User->>Frontend: Click "Optimize Plan"
@@ -390,15 +390,15 @@ sequenceDiagram
     Backend->>Orchestrator: executePipeline(userId)
     Orchestrator->>Firestore: Fetch User Profile, Tasks, and Memory Insights
     Firestore-->>Orchestrator: Context Data
-    Orchestrator->>Groq: Generate Reasoning (extractedTasks, risks, capacity)
-    Groq-->>Orchestrator: Reasoning JSON Response
+    Orchestrator->>LLM: Generate Reasoning (extractedTasks, risks, capacity)
+    LLM-->>Orchestrator: Reasoning JSON Response
     Orchestrator->>Orchestrator: Decision Engine calculates scores & status mapping
-    Orchestrator->>Groq: Generate Planning Schedule (wake/sleep boundaries)
-    Groq-->>Orchestrator: Planning JSON Response
-    Orchestrator->>Groq: Generate Reflection constraints & bottlenecks
-    Groq-->>Orchestrator: Reflection JSON Response
-    Orchestrator->>Groq: Generate Coaching messages & tips
-    Groq-->>Orchestrator: Coaching JSON Response
+    Orchestrator->>LLM: Generate Planning Schedule (wake/sleep boundaries)
+    LLM-->>Orchestrator: Planning JSON Response
+    Orchestrator->>LLM: Generate Reflection constraints & bottlenecks
+    LLM-->>Orchestrator: Reflection JSON Response
+    Orchestrator->>LLM: Generate Coaching messages & tips
+    LLM-->>Orchestrator: Coaching JSON Response
     Orchestrator->>Firestore: Persist Schedule & update Memory insights
     Firestore-->>Orchestrator: Confirmation
     Orchestrator-->>Backend: Consolidated plan payload
@@ -457,7 +457,7 @@ Momentum-AI/
 2. A [Firebase Project](https://console.firebase.google.com/) with:
    - Authentication (Email/Password & Google Sign-In enabled).
    - Cloud Firestore Database in Native Mode.
-3. A [Groq API Key](https://console.groq.com/).
+3. A Google AI Studio Gemini API Key (or Groq API Key as a fallback).
 
 ---
 
@@ -487,6 +487,8 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
    PORT=5000
    FIREBASE_PROJECT_ID=your-firebase-project-id
    GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json
+   LLM_PROVIDER=gemini
+   GEMINI_API_KEY=your-gemini-api-key
    GROQ_API_KEY=your-groq-api-key
    ```
 5. Run the dev server:
@@ -497,7 +499,9 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
    ```text
    Firebase Admin initialized successfully.
    Firestore connection initialized successfully.
+   Gemini SDK initialized successfully.
    Groq SDK initialized successfully.
+   Active LLM Provider: Gemini
    Server is running on port 5000
    ```
 
