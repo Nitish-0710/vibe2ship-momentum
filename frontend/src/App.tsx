@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import ProtectedRoute from '@/components/common/ProtectedRoute'
 import DashboardLayout from '@/layouts/DashboardLayout'
@@ -21,6 +21,7 @@ export default function App() {
       {/* Protected routes — wrapped in DashboardLayout */}
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
+          <Route path="/" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
           <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
           <Route path={ROUTES.TASKS} element={<DashboardPage />} />
           <Route path={ROUTES.PLANNER} element={<PlannerPage />} />
