@@ -15,13 +15,6 @@ Momentum AI is a state-of-the-art cognitive productivity platform that transform
 
 ---
 
-## Project Assets
-- **[🎥 Demo Video Placeholder]**
-- **[📊 Presentation Deck Placeholder]**
-- **[🌐 Live Demo Platform Placeholder]**
-
----
-
 ## 1. Problem Statement
 
 ### Why Productivity Apps Fail
