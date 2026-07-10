@@ -1,4 +1,4 @@
-const { getDb } = require('../config/firebase')
+const Reflection = require('../models/Reflection')
 const { buildContext } = require('../brain/context/context-builder')
 const { executeReflection } = require('../brain/modules/reflection-engine')
 const { updateMemory } = require('../brain/modules/memory-engine')
@@ -54,24 +54,19 @@ async function recordDailyReflection(userId, reflectionData) {
     throw new Error(`VALIDATION_ERROR: ${errors.join(', ')}`)
   }
 
-  const db = getDb()
-  if (!db) {
-    throw new Error('Database connection is unavailable.')
-  }
-
   const now = new Date().toISOString()
 
-  // 1. Log reflection to Firestore reflections collection
-  const reflectionDoc = {
+  // 1. Log reflection to MongoDB reflections collection
+  const reflectionDoc = new Reflection({
     userId,
     productivityRating: Number(reflectionData.productivityRating),
     completedTasks: reflectionData.completedTasks || [],
     blockers: reflectionData.blockers || [],
     notes: reflectionData.notes || '',
     createdAt: now,
-  }
+  })
 
-  await db.collection('reflections').add(reflectionDoc)
+  await reflectionDoc.save()
   console.log(`[Reflection Service] Recorded daily reflection doc for user: ${userId}`)
 
   // 2. Re-build user context to include the newly logged reflection

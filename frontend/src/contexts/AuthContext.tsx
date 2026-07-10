@@ -6,25 +6,20 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  type User as FirebaseUser,
-} from 'firebase/auth'
-import { auth, googleProvider } from '@/config/firebase'
-import { fetchUserProfile, syncUserProfile, updateUserProfile } from '@/services/auth.service'
+import { fetchUserProfile, registerUser, loginUser, updateUserProfile } from '@/services/auth.service'
 import type { UserProfile } from '@/types/auth.types'
+
+export interface FirebaseUser {
+  uid: string
+  email: string | null
+  displayName: string | null
+}
 
 interface AuthContextValue {
   firebaseUser: FirebaseUser | null
   userProfile: UserProfile | null
   loading: boolean
   error: string | null
-  /** Non-null when Firestore profile sync failed but Firebase auth succeeded. */
   profileSyncError: string | null
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
@@ -41,119 +36,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // Patch 4: separate error surface for profile sync failures
   const [profileSyncError, setProfileSyncError] = useState<string | null>(null)
 
   const clearError = useCallback(() => setError(null), [])
 
-  /**
-   * Patch 2 — Smart profile resolution.
-   *
-   * Existing users: GET /auth/profile only (no Firestore write).
-   * New users:      GET returns USER_NOT_FOUND → POST /auth/login to create doc.
-   *
-   * Patch 4 — Failure isolation.
-   * If both GET and POST fail, Firebase auth is preserved.
-   * profileSyncError is set instead of crashing the provider.
-   */
-  const resolveUserProfile = useCallback(async (user: FirebaseUser) => {
-    setProfileSyncError(null)
-    try {
-      // Optimistic path: existing user — read only, no write
-      const profile = await fetchUserProfile()
-      setUserProfile(profile)
-    } catch (fetchErr) {
-      const message = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-      const isNotFound =
-        message.includes('USER_NOT_FOUND') ||
-        message.includes('404') ||
-        message.includes('not found')
-
-      if (isNotFound) {
-        // First-time user: create the Firestore document
+  // Startup: verify existing JWT token
+  useEffect(() => {
+    async function initAuth() {
+      const token = localStorage.getItem('token')
+      if (token) {
         try {
-          const profile = await syncUserProfile({
-            name: user.displayName || user.email?.split('@')[0] || 'User',
-            email: user.email || '',
-          })
+          const profile = await fetchUserProfile()
           setUserProfile(profile)
-        } catch (syncErr) {
-          // Patch 4: sync failed — preserve auth, expose error, keep app stable
-          const syncMessage =
-            syncErr instanceof Error ? syncErr.message : 'Profile creation failed.'
-          console.error('Failed to create user profile in Firestore:', syncMessage)
-          setProfileSyncError(syncMessage)
-          // userProfile remains null; Firebase session is intact
+          setFirebaseUser({
+            uid: profile.uid,
+            email: profile.email,
+            displayName: profile.name,
+          })
+        } catch (err) {
+          console.error('Failed to restore JWT session:', err)
+          localStorage.removeItem('token')
+          setUserProfile(null)
+          setFirebaseUser(null)
         }
-      } else {
-        // Unexpected fetch error — preserve auth, expose error
-        console.error('Failed to fetch user profile:', message)
-        setProfileSyncError(message)
       }
+      setLoading(false)
     }
+    initAuth()
   }, [])
 
-  /**
-   * Patch 3 — Reliable loading state.
-   *
-   * loading is reset in finally so it ALWAYS resolves, even if
-   * resolveUserProfile throws unexpectedly. No indefinite spinner.
-   */
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user)
-      try {
-        if (user) {
-          await resolveUserProfile(user)
-        } else {
-          setUserProfile(null)
-          setProfileSyncError(null)
-        }
-      } finally {
-        // Patch 3: always release loading, regardless of outcome above
-        setLoading(false)
-      }
-    })
-    return unsubscribe
-  }, [resolveUserProfile])
-
-  /**
-   * login / signup / loginWithGoogle:
-   * These fire the Firebase action; onAuthStateChanged handles the rest.
-   * loading is NOT set to true here — the auth state listener owns that.
-   * On failure, setLoading(false) ensures the spinner is released.
-   */
   const login = useCallback(async (email: string, password: string) => {
     setError(null)
+    setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const res = await loginUser({ email, password })
+      localStorage.setItem('token', res.token)
+      setUserProfile(res.data)
+      setFirebaseUser({
+        uid: res.data.uid,
+        email: res.data.email,
+        displayName: res.data.name,
+      })
     } catch (err) {
-      setError(getFirebaseErrorMessage(err))
+      setError(err instanceof Error ? err.message : 'Invalid credentials.')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   const signup = useCallback(async (name: string, email: string, password: string) => {
     setError(null)
+    setLoading(true)
     try {
-      const { user } = await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(user, { displayName: name })
+      const res = await registerUser({ name, email, password })
+      localStorage.setItem('token', res.token)
+      setUserProfile(res.data)
+      setFirebaseUser({
+        uid: res.data.uid,
+        email: res.data.email,
+        displayName: res.data.name,
+      })
     } catch (err) {
-      setError(getFirebaseErrorMessage(err))
+      setError(err instanceof Error ? err.message : 'Registration failed.')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   const loginWithGoogle = useCallback(async () => {
-    setError(null)
-    try {
-      await signInWithPopup(auth, googleProvider)
-    } catch (err) {
-      setError(getFirebaseErrorMessage(err))
-    }
+    // Disabled per migration requirements. Keep stub signature.
+    console.warn('Google Sign-In is disabled in self-hosted configuration.')
   }, [])
 
   const logout = useCallback(async () => {
     setError(null)
-    await signOut(auth)
+    localStorage.removeItem('token')
+    setFirebaseUser(null)
     setUserProfile(null)
     setProfileSyncError(null)
   }, [])
@@ -163,6 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const updated = await updateUserProfile(userData)
       setUserProfile(updated)
+      setFirebaseUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              displayName: updated.name,
+            }
+          : null
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update profile settings.')
       throw err
@@ -196,21 +162,4 @@ export function useAuthContext(): AuthContextValue {
     throw new Error('useAuthContext must be used within AuthProvider')
   }
   return ctx
-}
-
-function getFirebaseErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const code = (error as { code?: string }).code
-    const messages: Record<string, string> = {
-      'auth/user-not-found': 'No account found with this email.',
-      'auth/wrong-password': 'Incorrect password.',
-      'auth/email-already-in-use': 'An account with this email already exists.',
-      'auth/weak-password': 'Password must be at least 6 characters.',
-      'auth/invalid-email': 'Please enter a valid email address.',
-      'auth/too-many-requests': 'Too many attempts. Please try again later.',
-      'auth/popup-closed-by-user': 'Sign-in was cancelled.',
-    }
-    return (code && messages[code]) || error.message || 'Authentication failed.'
-  }
-  return 'Authentication failed.'
 }

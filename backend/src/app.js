@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-const { initializeFirebase } = require('./config/firebase');
+const { initializeDb } = require('./config/db');
 const { initializeLLM } = require('./config/llm');
 
 // Routes
@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // Initialize Services
-initializeFirebase();
+initializeDb();
 initializeLLM();
 
 // Health check — unauthenticated

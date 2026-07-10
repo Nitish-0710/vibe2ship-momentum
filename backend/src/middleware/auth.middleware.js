@@ -1,10 +1,9 @@
-const { getAuth } = require('firebase-admin/auth');
+const jwt = require('jsonwebtoken');
+
 /**
  * Authentication Middleware.
- * Verifies the Firebase ID Token on every protected request.
+ * Verifies the JWT Bearer Token on every protected request.
  * Attaches decoded token claims to req.user.
- *
- * Usage: router.get('/protected', authenticate, controller)
  */
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -19,20 +18,22 @@ async function authenticate(req, res, next) {
     });
   }
 
-  const idToken = authHeader.split('Bearer ')[1]
+  const token = authHeader.split('Bearer ')[1];
 
   try {
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    req.user = decodedToken
-    console.log('[AUTH] User authenticated successfully.');
-    next()
+    const jwtSecret = process.env.JWT_SECRET || 'fallback_jwt_secret_key_momentum_ai';
+    const decoded = jwt.verify(token, jwtSecret);
+    
+    req.user = { uid: decoded.uid };
+    console.log('[AUTH] User authenticated successfully via JWT.');
+    next();
   } catch (error) {
-    console.error('[AUTH] Token verification failed:', error.message);
+    console.error('[AUTH] JWT verification failed:', error.message);
     return res.status(401).json({
       success: false,
       error: { code: 'INVALID_TOKEN', message: 'Invalid or expired authentication token.' },
-    })
+    });
   }
 }
 
-module.exports = { authenticate }
+module.exports = { authenticate };

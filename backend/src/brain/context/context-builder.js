@@ -1,154 +1,129 @@
+const mongoose = require('mongoose');
+const User = require('../../models/User');
+const Task = require('../../models/Task');
+const Insight = require('../../models/Insight');
+const Schedule = require('../../models/Schedule');
+const { createEmptyBrainContext } = require('../schemas/brain-context.schema');
+
 /**
  * Context Builder.
  *
- * Assembles a normalized BrainContext from Firestore data for the
+ * Assembles a normalized BrainContext from MongoDB data for the
  * authenticated user. This is the FIRST step of every Brain pipeline.
- *
- * References: TDD §20 "Context Builder", AISPEC §7 "Context Builder"
- *
- * Responsibilities:
- *   - Gather user profile
- *   - Gather active tasks (pending / in-progress)
- *   - Gather completed tasks
- *   - Normalize timestamps
- *   - Mark missing fields
- *   - Compute confidence
- *
- * Does NOT:
- *   - Invoke AI
- *   - Perform reasoning
- *   - Score priorities
  */
-
-const { getDb } = require('../../config/firebase')
-const { createEmptyBrainContext } = require('../schemas/brain-context.schema')
 
 /**
  * Builds a complete BrainContext for the given user.
  *
- * AISPEC §7 Failure Handling:
- *   - If partial data is unavailable, continue with what is available.
- *   - Mark missing fields.
- *   - Lower confidence.
- *
- * @param {string} userId - Firebase UID
+ * @param {string} userId - Unique User ID (uid)
  * @returns {Promise<import('../schemas/brain-context.schema').BrainContext>}
  */
 async function buildContext(userId) {
-  const context = createEmptyBrainContext()
-  const missingFields = []
+  const context = createEmptyBrainContext();
+  const missingFields = [];
 
-  const db = getDb()
-  if (!db) {
-    missingFields.push('firestore')
-    context.missingFields = missingFields
-    context.confidence = 0
-    return context
+  const isConnected = mongoose.connection.readyState === 1;
+  if (!isConnected) {
+    missingFields.push('database');
+    context.missingFields = missingFields;
+    context.confidence = 0;
+    return context;
   }
 
   // ── User Profile ────────────────────────────────────────────────
   try {
-    const userSnap = await db.collection('users').doc(userId).get()
-    if (userSnap.exists) {
-      const data = userSnap.data()
+    const user = await User.findOne({ uid: userId });
+    if (user) {
       context.user = {
-        uid: data.uid || userId,
-        name: data.name || '',
-        email: data.email || '',
-        occupation: data.occupation || '',
-        timezone: data.timezone || 'UTC',
-        wakeTime: data.wakeTime || '07:00',
-        sleepTime: data.sleepTime || '23:00',
-        preferences: data.preferences || {},
-      }
-      context.timezone = context.user.timezone
+        uid: user.uid || userId,
+        name: user.name || '',
+        email: user.email || '',
+        occupation: user.occupation || '',
+        timezone: user.timezone || 'UTC',
+        wakeTime: user.wakeTime || '07:00',
+        sleepTime: user.sleepTime || '23:00',
+        preferences: user.preferences || {},
+      };
+      context.timezone = context.user.timezone;
     } else {
-      missingFields.push('user')
+      missingFields.push('user');
     }
   } catch (err) {
-    console.error('Context Builder — failed to read user profile:', err.message)
-    missingFields.push('user')
+    console.error('Context Builder — failed to read user profile:', err.message);
+    missingFields.push('user');
   }
 
   // ── Tasks ───────────────────────────────────────────────────────
   try {
-    const taskSnap = await db
-      .collection('tasks')
-      .where('userId', '==', userId)
-      .get()
-
-    const allTasks = taskSnap.docs.map((doc) => doc.data())
+    const allTasks = await Task.find({ userId });
 
     context.activeTasks = allTasks.filter(
-      (t) => t.status === 'pending' || t.status === 'in-progress',
-    )
+      (t) => t.status === 'pending' || t.status === 'in-progress'
+    ).map(t => t.toObject());
+    
     context.completedTasks = allTasks.filter(
-      (t) => t.status === 'completed',
-    )
+      (t) => t.status === 'completed'
+    ).map(t => t.toObject());
   } catch (err) {
-    console.error('Context Builder — failed to read tasks:', err.message)
-    missingFields.push('tasks')
+    console.error('Context Builder — failed to read tasks:', err.message);
+    missingFields.push('tasks');
   }
 
   // ── Memory Insights & Historical Schedules ──────────────────────
   try {
-    const insightsSnap = await db.collection('insights').doc(userId).get()
-    context.memoryInsights = insightsSnap.exists ? insightsSnap.data() : null
+    const insightDoc = await Insight.findOne({ userId });
+    context.memoryInsights = insightDoc ? insightDoc.toObject() : null;
   } catch (err) {
-    console.error('Context Builder — failed to read insights memory:', err.message)
-    missingFields.push('memoryInsights')
+    console.error('Context Builder — failed to read insights memory:', err.message);
+    missingFields.push('memoryInsights');
   }
 
   try {
-    const schedulesSnap = await db
-      .collection('schedules')
-      .where('userId', '==', userId)
-      .orderBy('date', 'desc')
-      .limit(5)
-      .get()
-    context.previousSchedules = schedulesSnap.docs.map((doc) => doc.data())
+    const previousSchedules = await Schedule.find({ userId })
+      .sort({ date: -1 })
+      .limit(5);
+    context.previousSchedules = previousSchedules.map(doc => doc.toObject());
   } catch (err) {
-    console.error('Context Builder — failed to read schedules history:', err.message)
-    missingFields.push('previousSchedules')
+    console.error('Context Builder — failed to read schedules history:', err.message);
+    missingFields.push('previousSchedules');
   }
 
   // ── Timestamps ──────────────────────────────────────────────────
-  context.currentTimestamp = new Date().toISOString()
+  context.currentTimestamp = new Date().toISOString();
 
   // ── Confidence ──────────────────────────────────────────────────
-  context.missingFields = missingFields
-  context.confidence = calculateConfidence(context, missingFields)
+  context.missingFields = missingFields;
+  context.confidence = calculateConfidence(context, missingFields);
 
-  return context
+  return context;
 }
 
 /**
  * Computes a 0–100 confidence score.
- * AISPEC §22: factors that increase/reduce confidence.
  *
  * @param {Object} context
  * @param {string[]} missingFields
  * @returns {number}
  */
 function calculateConfidence(context, missingFields) {
-  let score = 100
+  let score = 100;
 
   // Major penalties
-  if (missingFields.includes('firestore')) return 0
-  if (missingFields.includes('user')) score -= 30
-  if (missingFields.includes('tasks')) score -= 30
+  if (missingFields.includes('database')) return 0;
+  if (missingFields.includes('user')) score -= 30;
+  if (missingFields.includes('tasks')) score -= 30;
 
   // Minor deductions for incomplete data
-  if (!context.user) score -= 10
-  if (context.activeTasks.length === 0 && context.completedTasks.length === 0) score -= 10
+  if (!context.user) score -= 10;
+  if (context.activeTasks.length === 0 && context.completedTasks.length === 0) score -= 10;
 
   // Check for tasks missing critical fields
   for (const task of context.activeTasks) {
-    if (!task.deadline) score -= 2
-    if (!task.estimatedHours) score -= 2
+    if (!task.deadline) score -= 2;
+    if (!task.estimatedHours) score -= 2;
   }
 
-  return Math.max(0, Math.min(100, score))
+  return Math.max(0, Math.min(100, score));
 }
 
-module.exports = { buildContext }
+module.exports = { buildContext };

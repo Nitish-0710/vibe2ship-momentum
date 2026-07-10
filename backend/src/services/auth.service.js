@@ -1,108 +1,139 @@
-const { getDb } = require('../config/firebase')
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
+const User = require('../models/User');
 
 /**
  * Auth Service.
- * Handles all Firestore operations for user management.
- * Business logic stays here — controllers remain thin.
+ * Handles all MongoDB operations for user management.
  */
 
 /**
- * Creates a new Firestore user document or returns existing one.
- * Called automatically after every successful authentication.
- *
- * @param {string} uid - Firebase UID from the verified token
- * @param {{ name: string, email: string }} userData - Basic user info
- * @returns {Promise<Object>} The user document data
+ * Registers a new user with hashed password.
  */
-async function createOrGetUser(uid, userData) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
-
-  const userRef = db.collection('users').doc(uid)
-  const userSnap = await userRef.get()
-
-  if (userSnap.exists) {
-    // Compute now once so Firestore write and return value are identical
-    const now = new Date().toISOString()
-    await userRef.update({ updatedAt: now })
-    // Return merged object — avoids an unnecessary second Firestore read
-    return { ...userSnap.data(), updatedAt: now }
+async function registerUser({ name, email, password }) {
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    throw new Error('EMAIL_ALREADY_IN_USE');
   }
 
-  // First-time login: create user document
-  const newUser = {
+  const uid = new mongoose.Types.ObjectId().toString();
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const now = new Date().toISOString();
+
+  const newUser = new User({
     uid,
-    name: userData.name || '',
-    email: userData.email || '',
+    name: name || '',
+    email: email.toLowerCase(),
+    password: hashedPassword,
     occupation: '',
     timezone: 'UTC',
     wakeTime: '07:00',
     sleepTime: '23:00',
     preferences: {},
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
+    createdAt: now,
+    updatedAt: now,
+  });
 
-  await userRef.set(newUser)
-  console.log(`New user created in Firestore: ${uid}`)
-  return newUser
+  await newUser.save();
+  console.log(`New user registered in MongoDB: ${uid}`);
+  return newUser.toObject();
 }
 
 /**
- * Retrieves the Firestore user document by UID.
- *
- * @param {string} uid - Firebase UID
- * @returns {Promise<Object>} The user document data
- * @throws {Error} If user document does not exist
+ * Authenticates user by email and password.
+ */
+async function authenticateUser(email, password) {
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new Error('WRONG_PASSWORD');
+  }
+
+  const now = new Date().toISOString();
+  user.updatedAt = now;
+  await user.save();
+
+  return user.toObject();
+}
+
+/**
+ * Creates a new user document or returns existing one (retained for OAuth compatibility if any, or general use).
+ */
+async function createOrGetUser(uid, userData) {
+  const now = new Date().toISOString();
+  let user = await User.findOne({ uid });
+
+  if (user) {
+    user.updatedAt = now;
+    await user.save();
+    return user.toObject();
+  }
+
+  // Fallback default password for sync-ups
+  const defaultPassword = await bcrypt.hash('momentum_ai_oauth_default_pwd', 10);
+
+  const newUser = new User({
+    uid,
+    name: userData.name || '',
+    email: userData.email?.toLowerCase() || '',
+    password: defaultPassword,
+    occupation: '',
+    timezone: 'UTC',
+    wakeTime: '07:00',
+    sleepTime: '23:00',
+    preferences: {},
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await newUser.save();
+  console.log(`New user created in MongoDB via oauth/sync: ${uid}`);
+  return newUser.toObject();
+}
+
+/**
+ * Retrieves the user document by UID.
  */
 async function getUserProfile(uid) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
-
-  const userSnap = await db.collection('users').doc(uid).get()
-
-  if (!userSnap.exists) {
-    throw new Error('USER_NOT_FOUND')
+  const user = await User.findOne({ uid });
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
   }
-
-  return userSnap.data()
+  return user.toObject();
 }
 
 /**
- * Updates an existing user's profile settings in Firestore.
- *
- * @param {string} uid - Firebase UID
- * @param {Object} updateData - Key-values to update
- * @returns {Promise<Object>} The updated user document data
+ * Updates an existing user's profile settings.
  */
 async function updateUserProfile(uid, updateData) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
-
-  const userRef = db.collection('users').doc(uid)
-  const userSnap = await userRef.get()
-
-  if (!userSnap.exists) {
-    throw new Error('USER_NOT_FOUND')
+  const user = await User.findOne({ uid });
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
   }
 
-  const now = new Date().toISOString()
-  const data = userSnap.data()
+  const now = new Date().toISOString();
 
-  const updated = {
-    ...data,
-    name: updateData.name !== undefined ? updateData.name : data.name,
-    occupation: updateData.occupation !== undefined ? updateData.occupation : data.occupation,
-    timezone: updateData.timezone !== undefined ? updateData.timezone : data.timezone,
-    wakeTime: updateData.wakeTime !== undefined ? updateData.wakeTime : data.wakeTime,
-    sleepTime: updateData.sleepTime !== undefined ? updateData.sleepTime : data.sleepTime,
-    preferences: updateData.preferences !== undefined ? updateData.preferences : data.preferences,
-    updatedAt: now,
-  }
+  if (updateData.name !== undefined) user.name = updateData.name;
+  if (updateData.occupation !== undefined) user.occupation = updateData.occupation;
+  if (updateData.timezone !== undefined) user.timezone = updateData.timezone;
+  if (updateData.wakeTime !== undefined) user.wakeTime = updateData.wakeTime;
+  if (updateData.sleepTime !== undefined) user.sleepTime = updateData.sleepTime;
+  if (updateData.preferences !== undefined) user.preferences = updateData.preferences;
+  user.updatedAt = now;
 
-  await userRef.set(updated)
-  console.log(`User profile updated in Firestore: ${uid}`)
-  return updated
+  await user.save();
+  console.log(`User profile updated in MongoDB: ${uid}`);
+  return user.toObject();
 }
 
-module.exports = { createOrGetUser, getUserProfile, updateUserProfile }
+module.exports = {
+  registerUser,
+  authenticateUser,
+  createOrGetUser,
+  getUserProfile,
+  updateUserProfile
+};

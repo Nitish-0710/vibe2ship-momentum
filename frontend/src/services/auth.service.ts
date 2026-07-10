@@ -6,9 +6,37 @@ import type { UserProfile } from '@/types/auth.types'
  * Communicates with the backend auth endpoints.
  */
 
+interface AuthResponse {
+  success: boolean
+  token: string
+  data: UserProfile
+}
+
 /**
- * Creates or retrieves the Firestore user document.
- * Called automatically after first sign-in.
+ * Registers a new user via email and password credentials.
+ */
+export async function registerUser(userData: {
+  name: string
+  email: string
+  password?: string
+}): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/register', userData)
+  return response.data
+}
+
+/**
+ * Logins a user via email and password credentials.
+ */
+export async function loginUser(userData: {
+  email: string
+  password?: string
+}): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/login', userData)
+  return response.data
+}
+
+/**
+ * Creates or retrieves the user document after external authentication (retained for fallback).
  */
 export async function syncUserProfile(userData: {
   name: string
@@ -22,7 +50,7 @@ export async function syncUserProfile(userData: {
 }
 
 /**
- * Retrieves the current authenticated user's profile from Firestore.
+ * Retrieves the current authenticated user's profile.
  */
 export async function fetchUserProfile(): Promise<UserProfile> {
   const response = await api.get<{ success: boolean; data: UserProfile }>(
@@ -32,7 +60,7 @@ export async function fetchUserProfile(): Promise<UserProfile> {
 }
 
 /**
- * Updates the user's Firestore profile settings.
+ * Updates the user's settings profile.
  */
 export async function updateUserProfile(userData: Partial<UserProfile>): Promise<UserProfile> {
   const response = await api.put<{ success: boolean; data: UserProfile }>(

@@ -3,7 +3,7 @@ const { detectReplanningTriggers } = require('../brain/modules/adaptive-planner'
 const { buildContext } = require('../brain/context/context-builder')
 const { recordDailyReflection } = require('../services/reflection.service')
 const { getUserAnalytics } = require('../services/analytics.service')
-const { getDb } = require('../config/firebase')
+const Schedule = require('../models/Schedule')
 
 /**
  * AI Controller.
@@ -166,26 +166,16 @@ async function getTodayPlan(req, res) {
   try {
     const userId = req.user.uid
     const todayDateStr = new Date().toISOString().substring(0, 10)
-    const db = getDb()
+    const schedule = await Schedule.findOne({ docId: `${userId}_${todayDateStr}` })
 
-    if (!db) {
-      return res.status(500).json({
-        success: false,
-        error: { code: 'DATABASE_ERROR', message: 'Firestore connection is unavailable.' },
-      })
-    }
-
-    const docRef = db.collection('schedules').doc(`${userId}_${todayDateStr}`)
-    const docSnap = await docRef.get()
-
-    if (!docSnap.exists) {
+    if (!schedule) {
       return res.status(200).json({
         success: true,
         data: null,
       })
     }
 
-    const data = docSnap.data()
+    const data = schedule.toObject()
     const fullPlan = data.fullPlan || null
 
     if (fullPlan) {

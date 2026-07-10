@@ -97,6 +97,7 @@ export default function LoginPage() {
               backgroundColor: 'var(--color-surface-2)',
               border: '1px solid var(--color-border)',
               color: 'var(--color-text)',
+              display: 'none',
             }}
           >
             <GoogleIcon />
@@ -104,7 +105,7 @@ export default function LoginPage() {
           </button>
 
           {/* Divider */}
-          <div className="relative flex items-center gap-3 mb-5">
+          <div className="relative flex items-center gap-3 mb-5" style={{ display: 'none' }}>
             <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>or</span>
             <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />

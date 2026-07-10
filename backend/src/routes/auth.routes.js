@@ -1,28 +1,37 @@
-const express = require('express')
-const { authenticate } = require('../middleware/auth.middleware')
-const authController = require('../controllers/auth.controller')
+const express = require('express');
+const { authenticate } = require('../middleware/auth.middleware');
+const authController = require('../controllers/auth.controller');
 
-const router = express.Router()
+const router = express.Router();
+
+/**
+ * POST /auth/register
+ * Registers a new user.
+ */
+router.post('/register', authController.register);
 
 /**
  * POST /auth/login
- * Creates or retrieves the Firestore user document.
- * Protected: requires valid Firebase ID Token.
+ * Performs credentials check and returns a signed JWT.
  */
-router.post('/login', authenticate, authController.login)
+router.post('/login', authController.login);
+
+/**
+ * GET /auth/me
+ * Returns current authenticated user's profile.
+ */
+router.get('/me', authenticate, authController.getProfile);
 
 /**
  * GET /auth/profile
- * Returns the authenticated user's profile from Firestore.
- * Protected: requires valid Firebase ID Token.
+ * Compatibility route for existing profile retrieval.
  */
-router.get('/profile', authenticate, authController.getProfile)
+router.get('/profile', authenticate, authController.getProfile);
 
 /**
  * PUT /auth/profile
- * Updates the authenticated user's profile settings in Firestore.
- * Protected: requires valid Firebase ID Token.
+ * Updates the user's settings profile.
  */
-router.put('/profile', authenticate, authController.updateProfile)
+router.put('/profile', authenticate, authController.updateProfile);
 
-module.exports = router
+module.exports = router;

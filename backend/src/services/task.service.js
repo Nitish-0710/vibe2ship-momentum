@@ -1,9 +1,9 @@
-const { getDb } = require('../config/firebase')
+const mongoose = require('mongoose');
+const Task = require('../models/Task');
 
 /**
  * Task Service.
- * All Firestore operations for the tasks collection.
- * Ownership is enforced on every read/write by matching userId.
+ * All MongoDB operations for the tasks collection.
  */
 
 /**
@@ -14,14 +14,11 @@ const { getDb } = require('../config/firebase')
  * @returns {Promise<Object>} Created task document
  */
 async function createTask(userId, taskData) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
+  const now = new Date().toISOString();
+  const taskId = new mongoose.Types.ObjectId().toString();
 
-  const now = new Date().toISOString()
-  const taskRef = db.collection('tasks').doc()
-
-  const task = {
-    id: taskRef.id,
+  const task = new Task({
+    id: taskId,
     userId,
     title: taskData.title.trim(),
     description: taskData.description?.trim() || '',
@@ -32,10 +29,10 @@ async function createTask(userId, taskData) {
     status: taskData.status || 'pending',
     createdAt: now,
     updatedAt: now,
-  }
+  });
 
-  await taskRef.set(task)
-  return task
+  await task.save();
+  return task.toObject();
 }
 
 /**
@@ -46,16 +43,8 @@ async function createTask(userId, taskData) {
  * @returns {Promise<Object[]>}
  */
 async function getTasks(userId) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
-
-  const snapshot = await db
-    .collection('tasks')
-    .where('userId', '==', userId)
-    .orderBy('createdAt', 'desc')
-    .get()
-
-  return snapshot.docs.map((doc) => doc.data())
+  const tasks = await Task.find({ userId }).sort({ createdAt: -1 });
+  return tasks.map((task) => task.toObject());
 }
 
 /**
@@ -67,15 +56,12 @@ async function getTasks(userId) {
  * @returns {Promise<Object>}
  */
 async function getTaskById(taskId, userId) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
+  const task = await Task.findOne({ id: taskId });
 
-  const taskSnap = await db.collection('tasks').doc(taskId).get()
+  if (!task) throw new Error('TASK_NOT_FOUND');
+  if (task.userId !== userId) throw new Error('FORBIDDEN');
 
-  if (!taskSnap.exists) throw new Error('TASK_NOT_FOUND')
-  if (taskSnap.data().userId !== userId) throw new Error('FORBIDDEN')
-
-  return taskSnap.data()
+  return task.toObject();
 }
 
 /**
@@ -88,31 +74,25 @@ async function getTaskById(taskId, userId) {
  * @returns {Promise<Object>} Updated task document
  */
 async function updateTask(taskId, userId, updates) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
+  const task = await Task.findOne({ id: taskId });
 
-  const taskRef = db.collection('tasks').doc(taskId)
-  const taskSnap = await taskRef.get()
+  if (!task) throw new Error('TASK_NOT_FOUND');
+  if (task.userId !== userId) throw new Error('FORBIDDEN');
 
-  if (!taskSnap.exists) throw new Error('TASK_NOT_FOUND')
-  if (taskSnap.data().userId !== userId) throw new Error('FORBIDDEN')
-
-  const now = new Date().toISOString()
-
-  // Build the update payload — only include fields present in the request
-  const allowedFields = ['title', 'description', 'category', 'deadline', 'estimatedHours', 'status', 'priorityScore']
-  const updatePayload = { updatedAt: now }
+  const now = new Date().toISOString();
+  const allowedFields = ['title', 'description', 'category', 'deadline', 'estimatedHours', 'status', 'priorityScore'];
 
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
-      if (field === 'title') updatePayload[field] = updates[field].trim()
-      else if (field === 'estimatedHours') updatePayload[field] = updates[field] != null ? Number(updates[field]) : null
-      else updatePayload[field] = updates[field]
+      if (field === 'title') task[field] = updates[field].trim();
+      else if (field === 'estimatedHours') task[field] = updates[field] != null ? Number(updates[field]) : null;
+      else task[field] = updates[field];
     }
   }
 
-  await taskRef.update(updatePayload)
-  return { ...taskSnap.data(), ...updatePayload }
+  task.updatedAt = now;
+  await task.save();
+  return task.toObject();
 }
 
 /**
@@ -124,16 +104,12 @@ async function updateTask(taskId, userId, updates) {
  * @returns {Promise<void>}
  */
 async function deleteTask(taskId, userId) {
-  const db = getDb()
-  if (!db) throw new Error('Firestore is not initialized.')
+  const task = await Task.findOne({ id: taskId });
 
-  const taskRef = db.collection('tasks').doc(taskId)
-  const taskSnap = await taskRef.get()
+  if (!task) throw new Error('TASK_NOT_FOUND');
+  if (task.userId !== userId) throw new Error('FORBIDDEN');
 
-  if (!taskSnap.exists) throw new Error('TASK_NOT_FOUND')
-  if (taskSnap.data().userId !== userId) throw new Error('FORBIDDEN')
-
-  await taskRef.delete()
+  await Task.deleteOne({ id: taskId });
 }
 
-module.exports = { createTask, getTasks, getTaskById, updateTask, deleteTask }
+module.exports = { createTask, getTasks, getTaskById, updateTask, deleteTask };

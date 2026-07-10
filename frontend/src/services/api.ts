@@ -1,10 +1,8 @@
 import axios from 'axios'
-import { auth } from '@/config/firebase'
 
 /**
  * Axios API client.
- * Automatically attaches the Firebase ID token to every request as Bearer token.
- * Backend verifies this token via auth.middleware.js.
+ * Automatically attaches the JWT token from localStorage to every request.
  */
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
@@ -13,12 +11,11 @@ const api = axios.create({
   },
 })
 
-// Request interceptor: attach Firebase ID token
+// Request interceptor: attach JWT token
 api.interceptors.request.use(
-  async (config) => {
-    const currentUser = auth.currentUser
-    if (currentUser) {
-      const token = await currentUser.getIdToken()
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
