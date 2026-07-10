@@ -1,4 +1,4 @@
-# Momentum AI
+# Momentum AI — MongoDB + Groq Edition
 
 ### AI-powered Personal Productivity & Adaptive Planning Assistant
 
@@ -8,10 +8,14 @@ Momentum AI is a state-of-the-art cognitive productivity platform that transform
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18.0+-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express)](https://expressjs.com/)
-[![Firebase](https://img.shields.io/badge/Firebase-12.0+-FFCA28?style=flat-square&logo=firebase)](https://firebase.google.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=flat-square&logo=mongodb)](https://www.mongodb.com/)
+[![JWT](https://img.shields.io/badge/JWT-JSON_Web_Token-black?style=flat-square&logo=json-web-tokens)](https://jwt.io/)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-orange?style=flat-square)](https://groq.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?style=flat-square&logo=vite)](https://vite.dev/)
+
+> [!NOTE]
+> **Infrastructure Migration Notice:** This branch (`migration/mongodb-groq`) is an infrastructure migration of the original Momentum AI hackathon project. Firebase has been fully replaced with MongoDB Atlas + local JWT authentication, and Gemini has been replaced with Groq API completions. The core application logic, frontend UI, routes, and overall cognitive engines remain completely identical to the original hackathon implementation.
 
 ---
 
@@ -19,6 +23,26 @@ Momentum AI is a state-of-the-art cognitive productivity platform that transform
 - **[🎥 Demo Video Placeholder]**
 - **[📊 Presentation Deck Placeholder]**
 - **[🌐 Live Demo Platform Placeholder]**
+
+---
+
+## 🔄 Infrastructure Migration
+
+This version of Momentum AI replaces proprietary and managed services with open, developer-controlled, and self-hosted infrastructure. 
+
+| Original Stack Component | Migrated Stack Component |
+| :--- | :--- |
+| **Firebase Authentication** | **JWT Authentication + bcrypt** |
+| **Cloud Firestore** | **MongoDB Atlas + Mongoose** |
+| **Firebase Admin SDK** | **Mongoose ODM** |
+| **Google Gemini API** | **Groq SDK (Llama 3.3 70B)** |
+| **Firebase Hosting** | **Deployment Agnostic (Render, Railway, local)** |
+
+### Why This Migration?
+1. **Zero Vendor Lock-In**: Complete independence from proprietary platforms like Firebase.
+2. **Localhost Agnostic**: Run and test the entire stack entirely on local offline environments without cloud quota limits.
+3. **Open-Source Infrastructure**: Move to standard databases (MongoDB) and standard sessions (JWT) used in self-hosted deployments.
+4. **Fast Inference**: Harness Groq Cloud's ultra-low latency Llama-3.3-70b inference for lightning-fast planning JSON pipelines.
 
 ---
 
@@ -79,7 +103,7 @@ Configure your profile name, email, morning wake-up hours, and evening sleep tim
 
 ## 4. System Architecture
 
-The following diagram illustrates the relationship between the React Frontend, authentication middleware, Express API controllers, the internal Brain Orchestrator pipeline, and external APIs (Firebase & Groq):
+The following diagram illustrates the relationship between the React Frontend, authentication middleware, Express API controllers, the internal Brain Orchestrator pipeline, and database/LLM providers (MongoDB & Groq):
 
 ```mermaid
 graph TD
@@ -89,7 +113,7 @@ graph TD
     end
 
     subgraph Authentication
-        FirebaseAuth["Firebase Authentication (Bearer Token)"]
+        JWTAuth["JWT Authentication (jsonwebtoken)"]
     end
 
     subgraph Express Backend
@@ -110,17 +134,17 @@ graph TD
     end
 
     subgraph Data & Inference Providers
-        LLM["Gemini SDK / Groq Cloud SDK"]
-        Firestore["Cloud Firestore Database"]
+        LLM["Groq SDK (Llama 3.3 70B)"]
+        MongoDB["MongoDB Database (Mongoose)"]
     end
 
     React -->|HTTP Requests + Bearer Token| API
     API --> Middleware
-    Middleware -->|Verify ID Token| FirebaseAuth
+    Middleware -->|Verify JWT Token| JWTAuth
     API --> Controller
     Controller --> Orchestrator
     Orchestrator --> Context
-    Context -->|Read Profile, Tasks & Memory| Firestore
+    Context -->|Read Profile, Tasks & Memory| MongoDB
     Orchestrator --> Reasoning
     Reasoning -->|Chat Completion JSON| LLM
     Orchestrator --> Decision
@@ -131,7 +155,7 @@ graph TD
     Orchestrator --> Coaching
     Coaching -->|Chat Completion JSON| LLM
     Orchestrator --> Memory
-    Memory -->|Write Schedules & Insights| Firestore
+    Memory -->|Write Schedules & Insights| MongoDB
 ```
 
 ---
@@ -143,11 +167,11 @@ Here is the operational path a user takes from signup/login through planning exe
 ```mermaid
 graph TD
     Start([User Starts]) --> Auth{Logged In?}
-    Auth -->|No| Login[Authenticate via Google OAuth / Email]
+    Auth -->|No| Login[Authenticate via Email & Password]
     Auth -->|Yes| Dashboard[Access Dashboard]
     Login --> Dashboard
     Dashboard --> CreateTask[Create / Manage Tasks]
-    CreateTask --> StoreTask[(Save Task in Firestore)]
+    CreateTask --> StoreTask[(Save Task in MongoDB)]
     StoreTask --> Dashboard
     Dashboard --> ClickOptimize[Click 'Optimize Plan']
     ClickOptimize --> TriggerBrain[Trigger Brain Orchestration Pipeline]
@@ -155,7 +179,7 @@ graph TD
     ViewPlanner --> CompleteTasks[Complete Tasks / Log Reflections]
     CompleteTasks --> SubmitReflection[Submit Daily Reflection]
     SubmitReflection --> AnalyzeReflection[Reflection Engine Updates Memory]
-    AnalyzeReflection --> UpdateInsights[(Save Insights in Memory)]
+    AnalyzeReflection --> UpdateInsights[(Save Insights in MongoDB)]
     UpdateInsights --> NextDay[Prepare Next Day Optimized Planning]
 ```
 
@@ -191,7 +215,7 @@ graph LR
     PE -->|Optimized time blocks schedule| RFE
     RFE -->|Feasibility checks & observations| CE
     CE -->|Encouraging daily coaching messages| ME
-    ME -->|Persist schedules & learning trends| Firestore[(Cloud Firestore)]
+    ME -->|Persist schedules & learning trends| MongoDB[(MongoDB Database)]
 ```
 
 - **Context Builder**: Normalizes tasks, profile, and memory into a single structured schema.
@@ -213,7 +237,7 @@ graph TD
     Server[server.js] --> App[app.js]
     App --> Routes[API Routes]
     Routes --> AuthMiddleware[Auth Middleware]
-    AuthMiddleware --> FirebaseAuth[Firebase Auth SDK]
+    AuthMiddleware --> JWTAuth[jsonwebtoken / bcryptjs]
     Routes --> AIController[AI Controller]
     AIController --> ContextBuilder[Context Builder]
     AIController --> Orchestrator[Brain Orchestrator]
@@ -225,11 +249,11 @@ graph TD
     Orchestrator --> MemoryEngine[Memory Engine]
     
     Engines[AI Engines] --> LLMService[LLM Service]
-    LLMService --> LLMSDKs[Gemini / Groq SDK Clients]
+    LLMService --> GroqSDK[Groq SDK Client]
     
-    ContextBuilder --> FirebaseConfig[Firebase Admin Config]
-    MemoryEngine --> FirebaseConfig
-    FirebaseConfig --> Firestore[(Cloud Firestore)]
+    ContextBuilder --> DBConfig[MongoDB Connection Config]
+    MemoryEngine --> DBConfig
+    DBConfig --> MongoDB[(MongoDB Database)]
 ```
 
 ---
@@ -289,17 +313,22 @@ graph TD
 
 ## 9. Database Entity-Relationship Diagram
 
-Momentum AI is powered by Cloud Firestore's document-model collection layout:
+Momentum AI is powered by MongoDB Atlas document collections configured via Mongoose schemas:
 
 ```mermaid
 erDiagram
     USERS {
         string uid PK
-        string email
+        string email UK
+        string password
         string name
-        string wakeUpTime
+        string occupation
+        string timezone
+        string wakeTime
         string sleepTime
-        timestamp createdAt
+        object preferences
+        string createdAt
+        string updatedAt
     }
     TASKS {
         string id PK
@@ -307,31 +336,30 @@ erDiagram
         string title
         string description
         string category
-        string urgency
-        string dependencyTaskId
-        int estimatedDurationMinutes
+        string deadline
+        double estimatedHours
+        double priorityScore
         string status
-        timestamp dueDate
-        timestamp createdAt
+        string createdAt
+        string updatedAt
     }
     SCHEDULES {
         string docId PK "Format: userId_YYYY-MM-DD"
         string userId FK
         string date
         array taskBlocks
-        int totalHours
+        double totalHours
         string aiSummary
         object fullPlan "Complete snap of planning run"
-        timestamp createdAt
+        string createdAt
     }
     REFLECTIONS {
-        string id PK
         string userId FK
         int productivityRating
         array completedTasks
         array blockers
         string notes
-        timestamp createdAt
+        string createdAt
     }
     INSIGHTS {
         string userId PK
@@ -340,7 +368,7 @@ erDiagram
         array commonBlockers
         array recommendationHistory
         array reflectionSummaries
-        timestamp lastUpdatedAt
+        string lastUpdatedAt
     }
 
     USERS ||--o{ TASKS : owns
@@ -355,8 +383,10 @@ erDiagram
 
 | Method | Endpoint | Purpose | Authentication |
 | :--- | :--- | :--- | :--- |
-| **POST** | `/auth/register` | Creates a new user profile document in Firestore. | No |
-| **POST** | `/auth/login` | Validates user session parameters. | No |
+| **POST** | `/auth/register` | Registers a new user credentials document in MongoDB. | No |
+| **POST** | `/auth/login` | Validates credentials and returns a signed JWT. | No |
+| **GET** | `/auth/me` | Returns current authenticated user profile. | Yes (Bearer Token) |
+| **GET** | `/auth/profile` | Compatibility route to return profile. | Yes (Bearer Token) |
 | **PUT** | `/auth/profile` | Updates user settings (wake-up time, sleep time). | Yes (Bearer Token) |
 | **GET** | `/tasks` | Retrieves all active and completed tasks for the authenticated user. | Yes (Bearer Token) |
 | **POST** | `/tasks` | Creates a new task. | Yes (Bearer Token) |
@@ -381,15 +411,15 @@ sequenceDiagram
     participant Frontend as Frontend (Vite)
     participant Backend as Backend API (Express)
     participant Orchestrator as Brain Orchestrator
-    participant LLM as LLM Provider (Gemini/Groq)
-    participant Firestore as Firestore DB
+    participant LLM as LLM Provider (Groq)
+    participant MongoDB as MongoDB Database
 
     User->>Frontend: Click "Optimize Plan"
     Frontend->>Backend: POST /ai/plan (Bearer Token)
     Backend->>Backend: Auth Middleware verifies token
     Backend->>Orchestrator: executePipeline(userId)
-    Orchestrator->>Firestore: Fetch User Profile, Tasks, and Memory Insights
-    Firestore-->>Orchestrator: Context Data
+    Orchestrator->>MongoDB: Fetch User Profile, Tasks, and Memory Insights
+    MongoDB-->>Orchestrator: Context Data
     Orchestrator->>LLM: Generate Reasoning (extractedTasks, risks, capacity)
     LLM-->>Orchestrator: Reasoning JSON Response
     Orchestrator->>Orchestrator: Decision Engine calculates scores & status mapping
@@ -399,8 +429,8 @@ sequenceDiagram
     LLM-->>Orchestrator: Reflection JSON Response
     Orchestrator->>LLM: Generate Coaching messages & tips
     LLM-->>Orchestrator: Coaching JSON Response
-    Orchestrator->>Firestore: Persist Schedule & update Memory insights
-    Firestore-->>Orchestrator: Confirmation
+    Orchestrator->>MongoDB: Persist Schedule & update Memory insights
+    MongoDB-->>Orchestrator: Confirmation
     Orchestrator-->>Backend: Consolidated plan payload
     Backend-->>Frontend: 200 OK (BrainPlanResponse)
     Frontend-->>User: Render Timeline & Coaching Cards
@@ -420,9 +450,10 @@ Momentum-AI/
 │   │   │   ├── prompts/          # String template files for Groq prompts
 │   │   │   ├── schemas/          # Struct validators and default schema constructs
 │   │   │   └── orchestrator/     # Pipeline orchestrator & step validation errors
-│   │   ├── config/               # Firebase & Groq connection clients
-│   │   ├── controllers/          # AI routes, authentication routes, task routes controllers
-│   │   ├── middleware/           # Auth Bearer Token token validators
+│   │   ├── config/               # DB & Groq connection clients
+│   │   ├── controllers/          # AI, authentication, and task route controllers
+│   │   ├── middleware/           # JWT Auth Bearer Token validators
+│   │   ├── models/               # Mongoose database collection schemas
 │   │   ├── routes/               # API Router maps
 │   │   ├── services/             # Analytics metrics & reflection observers services
 │   │   └── app.js                # Express app framework initialization
@@ -433,13 +464,12 @@ Momentum-AI/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/           # Tasks, forms, timeline cards, charts
-│   │   ├── config/               # Firebase Client SDK initialize hooks
 │   │   ├── constants/            # Routing path declarations
-│   │   ├── contexts/             # Auth provider contexts
+│   │   ├── contexts/             # Auth provider contexts (local JWT session)
 │   │   ├── hooks/                # Custom React hooks (React Query integrations)
 │   │   ├── layouts/              # Main structure with Sidebar
 │   │   ├── pages/                # Pages (Planner, Analytics, Reflection, Settings)
-│   │   ├── services/             # Axios request definitions
+│   │   ├── services/             # Axios request definitions (JWT injection)
 │   │   ├── types/                # Typescript interfaces
 │   │   ├── main.tsx              # Mounting index
 │   │   └── index.css             # Main styling index
@@ -454,22 +484,12 @@ Momentum-AI/
 
 ### Prerequisites
 1. [Node.js](https://nodejs.org/) (v18 or higher recommended).
-2. A [Firebase Project](https://console.firebase.google.com/) with:
-   - Authentication (Email/Password & Google Sign-In enabled).
-   - Cloud Firestore Database in Native Mode.
-3. A Google AI Studio Gemini API Key (or Groq API Key as a fallback).
+2. [MongoDB](https://www.mongodb.com/) (either a local MongoDB instance running on port 27017, or a MongoDB Atlas cloud connection URI).
+3. A [Groq API Key](https://console.groq.com/) (inference provider for the Llama-3.3-70b planning pipeline).
 
 ---
 
-### Step 1: Firebase Project Configuration
-Create a file named `serviceAccountKey.json` inside the `backend` directory. Locate this by visiting:
-* **Firebase Console** -> **Project Settings** -> **Service accounts** -> **Generate new private key**.
-
-Download the key and paste its contents into `backend/serviceAccountKey.json`.
-
----
-
-### Step 2: Backend Setup
+### Step 1: Backend Setup
 1. Navigate to the backend directory:
    ```bash
    cd backend
@@ -485,10 +505,9 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
 4. Update the environment variables:
    ```env
    PORT=5000
-   FIREBASE_PROJECT_ID=your-firebase-project-id
-   GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json
-   LLM_PROVIDER=gemini
-   GEMINI_API_KEY=your-gemini-api-key
+   MONGODB_URI=mongodb://127.0.0.1:27017/momentum_ai
+   JWT_SECRET=your_jwt_secret_key
+   JWT_EXPIRE=7d
    GROQ_API_KEY=your-groq-api-key
    ```
 5. Run the dev server:
@@ -497,17 +516,15 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
    ```
    The backend should log:
    ```text
-   Firebase Admin initialized successfully.
-   Firestore connection initialized successfully.
-   Gemini SDK initialized successfully.
    Groq SDK initialized successfully.
-   Active LLM Provider: Gemini
+   Active LLM Provider: Groq
    Server is running on port 5000
+   MongoDB connection initialized successfully.
    ```
 
 ---
 
-### Step 3: Frontend Setup
+### Step 2: Frontend Setup
 1. Open a new terminal and navigate to the frontend directory:
    ```bash
    cd frontend
@@ -520,15 +537,9 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
    ```bash
    touch .env
    ```
-4. Configure the environment variables using your Firebase Web client details:
+4. Configure the environment variables to point to the backend API:
    ```env
    VITE_API_URL=http://localhost:5000
-   VITE_FIREBASE_API_KEY=your-api-key
-   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your-project-id
-   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-   VITE_FIREBASE_APP_ID=your-app-id
    ```
 5. Run the Vite development server:
    ```bash
@@ -553,10 +564,10 @@ Download the key and paste its contents into `backend/serviceAccountKey.json`.
 ## 15. Performance & Reliability
 
 ### Authentication Security
-Requests sent to backend AI, task, and analytics routes are verified by the `auth.middleware.js` using Firebase Authentication. If a token is missing, invalid, or expired, the backend returns a `401 Unauthorized` response.
+Requests sent to backend AI, task, and analytics routes are verified by the `auth.middleware.js` using local JWT Bearer token authentication. If a token is missing, invalid, or expired, the backend returns a `401 Unauthorized` response.
 
 ### Plan Persistence
-Schedules generated by the Brain Orchestrator are saved to the `schedules` collection in Firestore with a unique document ID format (`${userId}_${todayDateStr}`). When the page is reloaded, the app retrieves the existing schedule, ensuring it survives page refreshes.
+Schedules generated by the Brain Orchestrator are saved to the `schedules` collection in MongoDB with a unique document ID format (`${userId}_${todayDateStr}`). When the page is reloaded, the app retrieves the existing schedule, ensuring it survives page refreshes.
 
 ### Fault Tolerance & Fallback Schemas
 If the Groq API fails or rate limits (`429`) occur during pipeline execution, the system uses fallback schemas (implemented in `backend/src/brain/schemas/`) for the planning, reasoning, reflection, and coaching stages. This prevents backend crashes, keeps validation rules intact, and returns a usable default schedule.
@@ -582,6 +593,7 @@ Momentum AI was built using a modular, test-driven approach:
 2. **Schema Validation**: Each pipeline step is validated to prevent malformed data from propagating down the system.
 3. **Groq SDK Migration**: Migrated the AI service layer from Google Gemini to the Groq Cloud SDK using Llama 3.3 70B for fast JSON completions.
 4. **Reliability Tuning**: Integrated client-side loading spinners and backend data normalization to handle page refreshes cleanly.
+5. **Infrastructure Migration**: Migrated the platform from Firebase Services and Gemini to self-hosted alternatives, adopting Mongoose MongoDB database collections, bcrypt password hashing, and local JWT token session authorizations.
 
 ---
 
@@ -592,7 +604,7 @@ The following tools and platforms were used during the development of Momentum A
 - **Claude (Opus / Sonnet)** – Assisted with code generation, review, and refactoring during development.
 - **Google Gemini (Flash Pro)** – Assisted with design discussions, planning, and documentation during development.
 - **Groq Cloud** – Inference provider for the deployed AI pipeline.
-- **Firebase** – Authentication and database infrastructure.
+- **MongoDB & Mongoose** – Self-hosted database and schemas configuration.
 - **React, Express, Tailwind CSS, Vite, Node.js** – Application framework ecosystem.
 
 ---
